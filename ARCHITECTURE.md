@@ -5,6 +5,8 @@ An operator's overview of the multi-brand Meta Ads automation template. This is 
 ## What this is
 A standalone, multi-brand system that runs Meta (Facebook/Instagram) ads through code instead of clicking around Ads Manager. It's three connected pieces plus a built-in "brain," and it can manage any number of brands.
 
+![Meta Ads Agent — system architecture](docs/architecture.png)
+
 ## The big picture
 ```
         Slack  (you talk to it here)
