@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from config import DATA_DIR, DB_PATH
 
@@ -51,6 +51,14 @@ def init() -> None:
         CREATE TABLE IF NOT EXISTS kv (
             key TEXT PRIMARY KEY,
             value TEXT
+        );
+        CREATE TABLE IF NOT EXISTS lessons (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            brand TEXT,
+            lesson TEXT,           -- a durable, transferable one-liner
+            evidence TEXT,         -- which decision(s) it came from
+            confirmations INTEGER DEFAULT 1
         );
         """
     )
@@ -131,3 +139,53 @@ def update_approval(aid: int, status: str, result=None) -> None:
     )
     c.commit()
     c.close()
+
+
+# --- Learning loop: outcomes + lessons -------------------------------------
+
+def pending_decisions(brand: str | None = None, min_age_days: int = 3, limit: int = 12) -> list[dict]:
+    """Graded calls (not briefings) that have no outcome yet and are old enough to assess."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=min_age_days)).isoformat()
+    c = _conn()
+    q = ("SELECT * FROM decisions WHERE (outcome IS NULL OR outcome='') "
+         "AND call NOT IN ('BRIEFING','NO-DATA','SETUP','-') AND ts < ?")
+    params: list = [cutoff]
+    if brand:
+        q += " AND brand=?"
+        params.append(brand)
+    q += " ORDER BY id ASC LIMIT ?"
+    params.append(limit)
+    rows = c.execute(q, params).fetchall()
+    c.close()
+    return [dict(r) for r in rows]
+
+
+def record_outcome(decision_id: int, outcome: str) -> None:
+    c = _conn()
+    c.execute("UPDATE decisions SET outcome=? WHERE id=?", (outcome, decision_id))
+    c.commit()
+    c.close()
+
+
+def add_lesson(brand: str | None, lesson: str, evidence: str = "") -> int:
+    c = _conn()
+    cur = c.execute(
+        "INSERT INTO lessons (ts,brand,lesson,evidence) VALUES (?,?,?,?)",
+        (datetime.now(timezone.utc).isoformat(), brand, lesson, evidence),
+    )
+    c.commit()
+    rid = cur.lastrowid
+    c.close()
+    return rid
+
+
+def recent_lessons(brand: str | None = None, limit: int = 12) -> list[dict]:
+    c = _conn()
+    if brand:
+        rows = c.execute(
+            "SELECT * FROM lessons WHERE brand=? ORDER BY id DESC LIMIT ?", (brand, limit)
+        ).fetchall()
+    else:
+        rows = c.execute("SELECT * FROM lessons ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    c.close()
+    return [dict(r) for r in rows]

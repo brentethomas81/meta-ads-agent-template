@@ -58,3 +58,35 @@ def run_daily_briefing(post) -> str:
 
     post("🗞️ *Daily Meta Ads Briefing*\n\n" + "\n\n".join(sections))
     return f"Briefing posted for {len(active)} active brand(s)."
+
+
+def run_learning_review(post=None) -> str:
+    """Close the learning loop: grade past decisions whose outcome is now known,
+    record the outcome, and promote durable patterns into lessons. Cheap and
+    bounded — only touches graded decisions ≥3 days old with no outcome yet."""
+    pend = store.pending_decisions(min_age_days=3, limit=12)
+    if not pend:
+        return "Learning review: nothing ready to grade."
+    graded = 0
+    new_lessons = 0
+    for d in pend:
+        brand = next((b for b in BRANDS if b.get("name") == d.get("brand")), None)
+        live = {}
+        if brand and brand.get("ad_account_id"):
+            for c in actions.active_campaigns(brand["ad_account_id"]):
+                live[c.get("name", c.get("id"))] = actions.campaign_insights(
+                    campaign_id=c["id"], date_preset="maximum"
+                )
+        verdict = brain.assess_outcome(d, json.dumps(live, indent=2)[:6000])
+        if not verdict:
+            continue
+        store.record_outcome(d["id"], str(verdict.get("outcome", ""))[:500])
+        graded += 1
+        lesson = verdict.get("lesson")
+        if lesson and str(lesson).strip().lower() not in ("null", "none", ""):
+            store.add_lesson(d.get("brand"), str(lesson)[:300], evidence=f"decision #{d['id']}")
+            new_lessons += 1
+    summary = f"Learning review: graded {graded}, promoted {new_lessons} lesson(s)."
+    if post and new_lessons:
+        post("🧠 *Learning update* — " + summary)
+    return summary

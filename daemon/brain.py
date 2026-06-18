@@ -63,9 +63,15 @@ def _brand_context(brand_dir, brand_name) -> str:
 
 
 def _learning_context(brand_name) -> str:
-    lessons = _read(config.LEARNING_DIR / "lessons_learned.md")
+    lessons_md = _read(config.LEARNING_DIR / "lessons_learned.md")
+    proven = store.recent_lessons(brand=brand_name, limit=12)
     recent = store.recent_decisions(brand=brand_name, limit=10)
-    lines = ["# === RECENT DECISIONS (machine learning store) ==="]
+    lines = ["# === PROVEN LESSONS (learned from real outcomes — these override general benchmarks) ==="]
+    if not proven:
+        lines.append("(none proven yet)")
+    for l in proven:
+        lines.append(f"- [{l.get('brand')}] {l.get('lesson')}")
+    lines.append("\n# === RECENT DECISIONS (machine learning store) ===")
     if not recent:
         lines.append("(none logged yet)")
     for d in recent:
@@ -73,7 +79,64 @@ def _learning_context(brand_name) -> str:
             f"- {d['ts'][:10]} {d.get('scope')}: {d.get('call')} ({d.get('confidence')}) "
             f"— {d.get('diagnosis')} -> outcome: {d.get('outcome') or 'pending'}"
         )
-    return f"# === LESSONS LEARNED (curated) ===\n{lessons}\n\n" + "\n".join(lines)
+    return f"# === LESSONS LEARNED (curated) ===\n{lessons_md}\n\n" + "\n".join(lines)
+
+
+def _json_in(text):
+    """Pull the first JSON object out of a model reply."""
+    import re as _re
+    m = _re.search(r"\{.*\}", text or "", _re.DOTALL)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(0))
+    except Exception:
+        return None
+
+
+def assess_outcome(decision: dict, live_data: str):
+    """Given a past decision + current data, judge what actually happened and
+    whether it's a durable lesson. Returns {"outcome": str, "lesson": str|None} or None."""
+    if not _client:
+        return None
+    prompt = (
+        "A prior media-buying decision was logged. Using the CURRENT live data, assess what actually happened. "
+        "Be concrete and cite the key number.\n\n"
+        f"DECISION ({(decision.get('ts') or '')[:10]}): {decision.get('call')} on {decision.get('scope')} — "
+        f"diagnosis: {decision.get('diagnosis')}; predicted: {decision.get('predicted')}.\n\n"
+        f"CURRENT DATA:\n{live_data}\n\n"
+        'Return ONLY JSON: {"outcome": "one sentence — did it play out as predicted, with the key number", '
+        '"lesson": "a durable, transferable one-line lesson IF clearly generalizable for this brand, else null"}'
+    )
+    resp = _client.messages.create(
+        model=config.MODEL_REASONING, max_tokens=400,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _json_in("".join(b.text for b in resp.content if b.type == "text"))
+
+
+def audit(recommendation_text: str, action: str, args: dict):
+    """Independent second-model sanity check on a proposed spend action.
+    Returns (ok: bool, note: str). Does NOT redo the analysis — only flags clear
+    guardrail violations / red flags."""
+    if not _client:
+        return (True, "auditor offline")
+    prompt = (
+        "You are an independent risk auditor for a Meta Ads agent. A spend action is proposed. "
+        "Check ONLY for clear problems against these hard guardrails: scale changes must be within ±25%; "
+        "never pause an ad set with <$50 spend or <3 days runtime unless explicitly forced; activate only "
+        "with a clear rationale; args must be well-formed. Do not re-do the analysis.\n\n"
+        f"PROPOSED: {action} args={json.dumps(args)}\n\nAGENT RATIONALE:\n{(recommendation_text or '')[:1500]}\n\n"
+        'Return ONLY JSON: {"ok": true or false, "note": "one short line"}'
+    )
+    resp = _client.messages.create(
+        model=config.MODEL_AUDITOR, max_tokens=150,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    v = _json_in("".join(b.text for b in resp.content if b.type == "text"))
+    if not v:
+        return (True, "auditor returned no verdict")
+    return (bool(v.get("ok", True)), str(v.get("note", "")))
 
 
 def ask(question, *, brand_name, brand_dir, live_data=None, model=None, max_tokens=1500) -> str:

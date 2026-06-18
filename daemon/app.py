@@ -47,10 +47,14 @@ def _extract_action(text: str):
     return clean, action
 
 
-def _approval_blocks(aid: int, action: str, args: dict):
+def _approval_blocks(aid: int, action: str, args: dict, audit_ok: bool = True, audit_note: str = ""):
+    badge = "✅ auditor: clear" if audit_ok else "⚠️ auditor: FLAGGED — review before approving"
+    if audit_note:
+        badge += f" · {audit_note}"
     return [
         {"type": "section", "text": {"type": "mrkdwn",
             "text": f"*Approval needed* — `{action}`\n```{json.dumps(args, indent=2)}```"}},
+        {"type": "context", "elements": [{"type": "mrkdwn", "text": badge}]},
         {"type": "actions", "elements": [
             {"type": "button", "style": "primary", "action_id": "approve",
              "text": {"type": "plain_text", "text": "Approve"}, "value": str(aid)},
@@ -75,8 +79,9 @@ def _respond(text: str, user: str, say):
     clean, action = _extract_action(answer)
     say(clean or "(no response)")
     if action and action.get("action") in actions.MONEY_ACTIONS:
+        audit_ok, audit_note = brain.audit(answer, action["action"], action.get("args", {}))
         aid = store.create_approval(action["action"], action.get("args", {}), user)
-        say(blocks=_approval_blocks(aid, action["action"], action.get("args", {})),
+        say(blocks=_approval_blocks(aid, action["action"], action.get("args", {}), audit_ok, audit_note),
             text="Approval needed")
 
 
@@ -135,6 +140,19 @@ def _post_to_briefing_channel(text: str):
 
 def _scheduled_briefing():
     log.info("Daily briefing: %s", briefing.run_daily_briefing(_post_to_briefing_channel))
+    # Close the learning loop right after the briefing (cheap; no-op if nothing to grade).
+    log.info("Learning review: %s", briefing.run_learning_review(_post_to_briefing_channel))
+
+
+def _knowledge_refresh_reminder():
+    target = config.BRIEFING_CHANNEL or store.get_kv("operator_id")
+    if not target:
+        return
+    app.client.chat_postMessage(channel=target, text=(
+        "🔄 *Knowledge refresh due* — the media-buying benchmarks & platform-mechanics files in "
+        "`knowledge/` are roughly quarterly. Worth a review so the agent isn't giving stale advice. "
+        "Ask me here and I can summarize what's changed on Meta's side."
+    ))
 
 
 def main():
@@ -144,6 +162,8 @@ def main():
     store.init()
     sched = BackgroundScheduler(timezone=config.BRIEFING_TZ)
     sched.add_job(_scheduled_briefing, CronTrigger(hour=config.BRIEFING_HOUR, minute=config.BRIEFING_MINUTE))
+    # Quarterly knowledge-vault refresh reminder (1st of Jan/Apr/Jul/Oct, 9am local).
+    sched.add_job(_knowledge_refresh_reminder, CronTrigger(month="1,4,7,10", day=1, hour=9, minute=0))
     sched.start()
     log.info("Meta Ads Agent bot up (Socket Mode). Daily briefing %02d:%02d %s.",
              config.BRIEFING_HOUR, config.BRIEFING_MINUTE, config.BRIEFING_TZ)
