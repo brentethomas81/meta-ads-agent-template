@@ -1,0 +1,23 @@
+# Fly config for the Meta Ads Agent Slack bot (separate app from the dashboard).
+# Deploy from the repo root:  fly deploy -c fly.bot.toml
+app = "CHANGEME-meta-ads-bot"   # rename to something unique on your Fly account
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile.bot"
+
+[env]
+  DATA_DIR = "/data"
+  BRIEFING_TZ = "America/Los_Angeles"
+  BRIEFING_HOUR = "6"
+  BRIEFING_MINUTE = "0"
+
+# Persistent volume for the learning store (SQLite).
+[mounts]
+  source = "meta_ads_data"
+  destination = "/data"
+
+# Socket Mode = outbound websocket only. No inbound service, no public IP, no ports.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

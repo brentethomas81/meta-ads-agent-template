@@ -1,0 +1,15 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install deps first for layer caching.
+COPY daemon/requirements.txt daemon/requirements.txt
+COPY mcp/requirements.txt mcp/requirements.txt
+RUN pip install --no-cache-dir -r daemon/requirements.txt -r mcp/requirements.txt
+
+# Copy the whole repo so the bot can read knowledge/ + learning/ and import mcp/server.py.
+COPY . /app
+
+ENV DATA_DIR=/data PYTHONUNBUFFERED=1
+WORKDIR /app/daemon
+CMD ["python", "app.py"]

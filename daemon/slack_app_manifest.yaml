@@ -1,0 +1,35 @@
+display_information:
+  name: Meta Ads Agent
+  description: Two-way Meta Ads media-buying agent — answers questions, reports CAC, handles scale/pause approvals.
+  background_color: "#1877F2"
+features:
+  bot_user:
+    display_name: Meta Ads Agent
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - chat:write.public
+      - channels:read
+      - channels:history
+      - channels:join
+      - groups:read
+      - im:read
+      - im:write
+      - im:history
+      - reactions:read
+      - reactions:write
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+      - reaction_added
+      - reaction_removed
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false

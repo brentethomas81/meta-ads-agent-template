@@ -1,0 +1,79 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f17; color: #e5e7eb; line-height: 1.5; }
+
+.shell { min-height: 100vh; }
+.topbar { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #1f2937; position: sticky; top: 0; background: #0b0f17; z-index: 30; }
+.title { font-weight: 700; color: #fff; font-size: 16px; }
+.loaded { margin-left: auto; color: #6b7280; font-size: 12px; }
+.ham { width: 38px; height: 34px; background: #111827; border: 1px solid #1f2937; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; }
+.ham span { display: block; width: 18px; height: 2px; background: #e5e7eb; border-radius: 2px; }
+
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 40; }
+.drawer { position: fixed; top: 0; left: 0; height: 100vh; width: 290px; background: #0e1420; border-right: 1px solid #1f2937; transform: translateX(-100%); transition: transform .2s ease; z-index: 50; overflow-y: auto; padding: 18px 14px; }
+.drawer.show { transform: translateX(0); }
+.drawer-head { color: #9ca3af; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+.nav-brand { margin-bottom: 16px; }
+.nav-brand-name { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.tag { font-size: 10px; color: #6b7280; border: 1px solid #374151; border-radius: 999px; padding: 1px 7px; text-transform: uppercase; }
+.nav-empty { color: #6b7280; font-size: 12px; font-style: italic; padding: 2px 4px; }
+.err-text { color: #fca5a5; font-style: normal; }
+.nav-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent; border: none; color: #cbd5e1; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.nav-item:hover { background: #131c2b; }
+.nav-item.active { background: #1c2740; color: #fff; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.nav-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.main { max-width: 860px; margin: 0 auto; padding: 28px 20px 64px; }
+.empty-main { color: #6b7280; margin-top: 40px; }
+.detail-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; border-bottom: 1px solid #1f2937; padding-bottom: 16px; }
+.d-brand { color: #9ca3af; font-size: 13px; }
+.d-name { color: #fff; font-size: 22px; font-weight: 700; margin-top: 2px; }
+.d-sub { color: #9ca3af; font-size: 13px; margin-top: 4px; }
+.d-badges { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+.status { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #9ca3af; border: 1px solid #374151; padding: 3px 9px; border-radius: 999px; }
+.pill { font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; color: #fff; }
+
+.big-cac { margin-top: 22px; background: #111827; border: 1px solid #1f2937; border-left-width: 4px; border-radius: 12px; padding: 20px; }
+.big-cac .k { color: #9ca3af; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.big-cac .v { font-size: 44px; font-weight: 800; line-height: 1.1; margin-top: 4px; }
+.big-cac .hint { color: #9ca3af; font-size: 13px; margin-top: 4px; }
+
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+.metric { background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 14px; }
+.metric .k { color: #9ca3af; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.metric .v { color: #fff; font-size: 20px; font-weight: 700; margin-top: 2px; }
+
+.legend { color: #6b7280; font-size: 12px; margin-top: 26px; border-top: 1px solid #1f2937; padding-top: 14px; }
+@media (max-width: 560px) { .metrics { grid-template-columns: repeat(2, 1fr); } .big-cac .v { font-size: 36px; } }
+
+/* Vault tabs */
+.vdot { width: 18px; text-align: center; flex: 0 0 auto; }
+.vault-head { border-bottom: 1px solid #1f2937; padding-bottom: 14px; margin-bottom: 10px; }
+.vault .md { margin-top: 22px; }
+.md h1 { font-size: 22px; color: #fff; margin: 26px 0 8px; }
+.md h2 { font-size: 18px; color: #fff; margin: 22px 0 6px; }
+.md h3 { font-size: 15px; color: #e5e7eb; margin: 16px 0 6px; }
+.md p { color: #cbd5e1; margin: 8px 0; }
+.md ul, .md ol { color: #cbd5e1; margin: 8px 0 8px 22px; }
+.md li { margin: 4px 0; }
+.md a { color: #60a5fa; text-decoration: none; word-break: break-all; }
+.md a:hover { text-decoration: underline; }
+.md strong { color: #fff; }
+.md code { background: #1f2937; padding: 2px 6px; border-radius: 6px; font-size: 13px; color: #e5e7eb; }
+.md pre { background: #0e1420; border: 1px solid #1f2937; border-radius: 8px; padding: 12px; overflow-x: auto; margin: 10px 0; }
+.md pre code { background: transparent; padding: 0; }
+.md blockquote { border-left: 3px solid #374151; padding-left: 12px; color: #9ca3af; margin: 10px 0; font-style: italic; }
+.md table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+.md th, .md td { border: 1px solid #1f2937; padding: 8px 10px; text-align: left; color: #cbd5e1; vertical-align: top; }
+.md th { background: #111827; color: #fff; }
+.md hr { border: none; border-top: 1px solid #1f2937; margin: 20px 0; }
+
+/* Agent Health */
+.health-chip { margin-left: 14px; display: inline-flex; align-items: center; gap: 7px; background: #111827; border: 1px solid #1f2937; color: #cbd5e1; border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+.health-chip:hover { background: #131c2b; }
+.hdot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; display: inline-block; }
+.health-list { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.health-row { display: flex; gap: 12px; align-items: flex-start; background: #111827; border: 1px solid #1f2937; border-radius: 10px; padding: 14px; }
+.health-row .hdot { margin-top: 5px; }
+.health-name { color: #fff; font-weight: 600; font-size: 14px; }
+.health-detail { color: #9ca3af; font-size: 13px; margin-top: 2px; }

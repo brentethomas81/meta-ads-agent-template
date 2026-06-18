@@ -1,0 +1,60 @@
+# Secrets
+mcp/.env
+.env
+.env.local
+*.pem
+*.key
+
+# Local state
+mcp/audit.db
+*.db
+*.sqlite
+*.sqlite3
+
+# PII / customer data — never commit
+**/_audience_seeds/*.csv
+**/_audience_seeds/*.txt
+*.audience_export.csv
+
+# Python
+mcp/venv/
+mcp/.venv/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node (dashboard)
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.vercel/
+dashboard/.env*.local
+
+# Fly
+fly.toml.local
+.fly/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db

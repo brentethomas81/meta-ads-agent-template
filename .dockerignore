@@ -1,0 +1,16 @@
+# Keep secrets and bulk out of the bot image
+**/.env
+**/.env.*
+**/.venv
+**/venv
+**/__pycache__
+**/*.pyc
+**/*.db
+**/*.sqlite
+.git
+dashboard/node_modules
+dashboard/.next
+dashboard/out
+**/_audience_seeds
+*.pdf
+*.docx
