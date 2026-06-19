@@ -28,6 +28,18 @@ Put them in **`mcp/.env`** (copy from `mcp/.env.example`).
 
 ---
 
+## 1b. Publish your Meta app + connect Instagram (do this once — saves an hour)
+
+Two Meta-account settings will silently block your first ad if they're not done. Knock them out now:
+
+**Publish your Meta app to Live.** A dev-mode app cannot create ad creatives — you'll get `error_subcode 1885183` ("app is in development mode"). Fix:
+1. `developers.facebook.com/apps/<YOUR_APP_ID>/settings/basic/` → set a **Privacy Policy URL** (any live privacy page) and a **Category**, then **Save Changes**.
+2. Left nav **App Publish Status → Go Live → Publish**. Status should read published, not "Unpublished."
+
+**Connect your Instagram account** (only if you want ads to run under your IG handle/follower count). In **Business Settings → Accounts → Instagram accounts → Add**, log in to the IG account, then assign it to your **ad account** and link it to your **Facebook Page**. Run `create_ad_creative` with `page_id` (and optionally `instagram_actor_id`) so Instagram placements carry your brand identity. If you skip this, ads still run, but on Facebook placements / a generic page-backed IG.
+
+---
+
 ## 2. Slack app (two-way bot)
 1. Go to **api.slack.com/apps → Create New App → From a manifest**, pick your workspace.
 2. Paste the contents of **`daemon/slack_app_manifest.yaml`** (it pre-sets all scopes,

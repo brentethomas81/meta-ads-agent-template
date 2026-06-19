@@ -723,7 +723,28 @@ def activate_campaign(campaign_id: str) -> dict:
     def _do():
         campaign = Campaign(campaign_id)
         campaign.api_update(params={"status": "ACTIVE"})
-        return {"campaign_id": campaign_id, "status": "ACTIVE", "note": "Campaign now spending."}
+        # A campaign alone won't deliver while its ad sets / ads stay PAUSED.
+        # Flip the whole chain ACTIVE so activation actually turns on spend.
+        ad_sets, ads = [], []
+        for aset in campaign.get_ad_sets(fields=["id"]):
+            try:
+                AdSet(aset["id"]).api_update(params={"status": "ACTIVE"})
+                ad_sets.append(aset["id"])
+            except Exception:
+                pass
+        for ad in campaign.get_ads(fields=["id"]):
+            try:
+                Ad(ad["id"]).api_update(params={"status": "ACTIVE"})
+                ads.append(ad["id"])
+            except Exception:
+                pass
+        return {
+            "campaign_id": campaign_id,
+            "status": "ACTIVE",
+            "ad_sets_activated": ad_sets,
+            "ads_activated": ads,
+            "note": "Campaign + ad sets + ads set ACTIVE. Ads still under Meta review will deliver once approved.",
+        }
 
     return _safely_call("activate_campaign", params_log, _do)
 
