@@ -18,6 +18,13 @@
 - Meta's own guidance leans into **creative diversification** + **strong 3-second hooks** + **sound on** (music/voiceover). [verified]
 - UGC-style is the dominant high-performer. [verified]
 
+## Placements (standing rule)
+- **Default to MANUAL placements at small/test budgets** — not Advantage+ "all placements." Run only **Instagram (Feed, Stories, Reels, Explore) + Facebook (Feed, Stories, Reels)**. [domain knowledge]
+- **Exclude Audience Network** — low-quality third-party app/banner inventory that burns small budgets with poor intent. Only revisit with a dedicated, isolated test at higher budget. [domain knowledge]
+- **Exclude Threads** — needs a connected Threads identity and is unproven for direct response; leave off unless explicitly testing it.
+- **Exclude Facebook right-column** — image-only desktop slot; vertical video can't deliver there anyway.
+- Why: at $10–20/day every impression counts; concentrate spend on high-intent vertical-video inventory instead of letting Advantage+ leak budget into junk placements.
+
 ## Implications for our brands
 - **your brand:** run broad/Advantage+ Audience with the 1% LAL as a signal seed; optimize for the **Subscribe/Purchase** event (via Stripe CAPI), not traffic; lead with a 3-sec hook in the 9:16 reel; refresh creative every 1–2 weeks.
 - Avoid building new interest stacks — they won't deliver.
