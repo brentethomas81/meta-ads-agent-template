@@ -169,15 +169,21 @@ def _safely_call(tool_name: str, params: dict, fn):
         _audit(tool_name, params, result=result)
         return result
     except FacebookRequestError as e:
+        def _safe(fn):
+            try:
+                return fn()
+            except Exception:
+                return None
         err = {
             "error": "FacebookRequestError",
-            "message": e.api_error_message(),
-            "type": e.api_error_type(),
-            "code": e.api_error_code(),
-            "subcode": e.api_error_subcode(),
-            "fbtrace_id": e.api_error_fbtrace_id(),
+            "message": _safe(e.api_error_message),
+            "type": _safe(e.api_error_type),
+            "code": _safe(e.api_error_code),
+            "subcode": _safe(e.api_error_subcode),
+            "fbtrace_id": _safe(getattr(e, "api_error_fbtrace_id", lambda: None)),
+            "body": _safe(e.body),
         }
-        _audit(tool_name, params, error=json.dumps(err))
+        _audit(tool_name, params, error=json.dumps(err, default=str))
         return err
     except Exception as e:
         err = {"error": type(e).__name__, "message": str(e)}
@@ -458,6 +464,9 @@ def create_campaign(
                 "objective": objective,
                 "status": "PAUSED",  # GUARDRAIL: never auto-activate
                 "special_ad_categories": special_ad_categories or [],
+                # Meta now requires this when not using campaign-level budget (CBO).
+                # False = each ad set keeps its own budget (no cross-ad-set sharing).
+                "is_adset_budget_sharing_enabled": False,
             },
         )
         return {
@@ -594,6 +603,7 @@ def create_ad_creative(
     destination_url: str,
     cta_type: str = "LEARN_MORE",
     description: str = "",
+    instagram_actor_id: Optional[str] = None,
     ad_account_id: Optional[str] = None,
 ) -> dict:
     """Create an Ad Creative from an uploaded video + ad copy.
@@ -634,8 +644,22 @@ def create_ad_creative(
                 },
             },
         }
+        # Meta now requires a thumbnail for video creatives. Pull the video's
+        # auto-generated preferred frame and attach it as the thumbnail.
+        try:
+            _thumbs = AdVideo(video_id).get_thumbnails(fields=["uri", "is_preferred"])
+            if _thumbs:
+                _pref = next((t for t in _thumbs if t.get("is_preferred")), _thumbs[0])
+                if _pref.get("uri"):
+                    object_story_spec["video_data"]["image_url"] = _pref["uri"]
+        except Exception:
+            pass
         if description:
             object_story_spec["video_data"]["link_description"] = description
+        # Run the ad under an Instagram account (e.g. the brand's IG with its
+        # follower social proof) in addition to the Facebook Page.
+        if instagram_actor_id:
+            object_story_spec["instagram_actor_id"] = instagram_actor_id
 
         creative = _ad_account(ad_account_id).create_ad_creative(
             fields=[],
