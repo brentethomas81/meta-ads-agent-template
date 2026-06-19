@@ -21,6 +21,17 @@ import store
 
 _client = Anthropic(api_key=config.ANTHROPIC_API_KEY) if config.ANTHROPIC_API_KEY else None
 
+# Optional cross-vendor auditor (Gemini). When a key is set, spend actions get an
+# INDEPENDENT (different-vendor) review; otherwise we fall back to a 2nd Claude model.
+_gemini = None
+if config.GEMINI_API_KEY:
+    try:
+        import google.generativeai as _genai
+        _genai.configure(api_key=config.GEMINI_API_KEY)
+        _gemini = _genai.GenerativeModel(config.GEMINI_MODEL)
+    except Exception:
+        _gemini = None
+
 # Protocol that lets the agent PROPOSE a money action. app.py turns any emitted
 # block into an Approve/Pass button. The agent never executes — operator clicks.
 ACTION_PROTOCOL = (
@@ -119,8 +130,6 @@ def audit(recommendation_text: str, action: str, args: dict):
     """Independent second-model sanity check on a proposed spend action.
     Returns (ok: bool, note: str). Does NOT redo the analysis — only flags clear
     guardrail violations / red flags."""
-    if not _client:
-        return (True, "auditor offline")
     prompt = (
         "You are an independent risk auditor for a Meta Ads agent. A spend action is proposed. "
         "Check ONLY for clear problems against these hard guardrails: scale changes must be within ±25%; "
@@ -129,6 +138,16 @@ def audit(recommendation_text: str, action: str, args: dict):
         f"PROPOSED: {action} args={json.dumps(args)}\n\nAGENT RATIONALE:\n{(recommendation_text or '')[:1500]}\n\n"
         'Return ONLY JSON: {"ok": true or false, "note": "one short line"}'
     )
+    # Prefer the independent cross-vendor auditor (Gemini) when configured.
+    if _gemini is not None:
+        try:
+            v = _json_in(_gemini.generate_content(prompt).text)
+            if v is not None:
+                return (bool(v.get("ok", True)), "Gemini: " + str(v.get("note", "")))
+        except Exception:
+            pass  # fall through to the Claude auditor
+    if not _client:
+        return (True, "auditor offline")
     resp = _client.messages.create(
         model=config.MODEL_AUDITOR, max_tokens=150,
         messages=[{"role": "user", "content": prompt}],
@@ -136,7 +155,7 @@ def audit(recommendation_text: str, action: str, args: dict):
     v = _json_in("".join(b.text for b in resp.content if b.type == "text"))
     if not v:
         return (True, "auditor returned no verdict")
-    return (bool(v.get("ok", True)), str(v.get("note", "")))
+    return (bool(v.get("ok", True)), "Claude-2nd: " + str(v.get("note", "")))
 
 
 def ask(question, *, brand_name, brand_dir, live_data=None, model=None, max_tokens=1500) -> str:

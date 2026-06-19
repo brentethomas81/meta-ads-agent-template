@@ -24,7 +24,10 @@ SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET", "").strip()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 MODEL_REASONING = os.getenv("MODEL_REASONING", "claude-sonnet-4-6")          # the expert
 MODEL_TRIAGE = os.getenv("MODEL_TRIAGE", "claude-haiku-4-5-20251001")        # cheap gate
-MODEL_AUDITOR = os.getenv("MODEL_AUDITOR", "claude-opus-4-8")                # independent 2nd-model check on spend
+MODEL_AUDITOR = os.getenv("MODEL_AUDITOR", "claude-opus-4-8")                # fallback 2nd-model check on spend
+# --- Cross-vendor auditor (Gemini) — truly independent review of spend actions ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 # Knowledge-vault refresh reminder fires quarterly (months 1,4,7,10).
 
