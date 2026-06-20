@@ -3,6 +3,7 @@ ACTIVE. No active campaign anywhere => return early, make ZERO LLM calls => $0.
 """
 from __future__ import annotations
 
+import datetime
 import json
 
 import actions
@@ -17,11 +18,13 @@ BRIEF_PROMPT = (
     "Write this brand's MORNING REPORT for a NON-TECHNICAL operator reading on a phone. "
     "Plain English, ZERO jargon: say 'cost per subscriber' (not CAC), 'ad clicks' (not CTR / link clicks), "
     "'started checkout but didn't buy' (not abandonment rate). Under ~90 words. "
-    "Pull every number from the LIVE DATA; if one isn't there, write '—'. "
+    "Pull every number from the LIVE DATA; if one isn't there, write '—'. For the spend trend, "
+    "compare against the YESTERDAY figure and show ↑ / ↓ / → . "
     "Output EXACTLY this structure, nothing before or after:\n"
-    "☀️ *<Brand> — Morning Report*\n"
-    "💸 Spent: $<total so far>\n"
+    "☀️ *<Brand> — Morning Report · Day <N>*\n"
+    "💸 Spent: $<total so far> (<↑/↓/→> vs yesterday)\n"
     "✅ New subscribers from ads: <n>\n"
+    "💰 Revenue from ads: $<x>\n"
     "🎯 Cost per subscriber: $<x, or '—' if no sales yet>\n"
     "👆 Ad clicks: <n>\n"
     "🛒 Checkout: <started> started → <bought> bought\n"
@@ -51,6 +54,22 @@ def run_daily_briefing(post) -> str:
     sections = []
     for b, camps in active:
         live = actions.live_snapshot(b["ad_account_id"])
+        extra = []
+        for c in camps:
+            y = actions.campaign_insights(campaign_id=c["id"], date_preset="yesterday")
+            yr = y[0] if isinstance(y, list) and y else (y if isinstance(y, dict) else {})
+            if isinstance(yr, dict) and not yr.get("error"):
+                extra.append(f"YESTERDAY: spend ${yr.get('spend')}, {yr.get('clicks')} clicks")
+            ct = c.get("created_time")
+            if ct:
+                try:
+                    start = datetime.datetime.fromisoformat(str(ct).replace("Z", "+00:00"))
+                    days = (datetime.datetime.now(datetime.timezone.utc) - start).days + 1
+                    extra.append(f"DAY OF RUN: day {days}")
+                except Exception:  # noqa: BLE001
+                    pass
+        if extra:
+            live = live + "\n" + " | ".join(extra)
         try:
             sf = stripe_data.funnel_snapshot(days=14)
             if sf:
