@@ -23,6 +23,20 @@ if _READY:
     _stripe.api_key = config.STRIPE_API_KEY
 
 
+def _field(obj, key, default=None):
+    """Read a field from a Stripe object OR a plain dict, safely.
+
+    Stripe's response objects don't reliably expose dict's ``.get`` across
+    library versions, so we try subscript access first and fall back to
+    attribute access — never raising on a missing key.
+    """
+    try:
+        val = obj[key]
+    except Exception:  # noqa: BLE001
+        val = getattr(obj, key, default)
+    return default if val is None else val
+
+
 def _recent_sessions(days: int):
     """Recent Checkout Sessions (capped) within the window."""
     since = int(time.time()) - days * 86400
@@ -45,13 +59,13 @@ def funnel_snapshot(days: int = 14) -> str:
         return f"STRIPE: data unavailable ({str(e)[:110]})"
     link = config.STRIPE_PAYMENT_LINK
     if link:
-        sessions = [s for s in sessions if s.get("payment_link") == link]
+        sessions = [s for s in sessions if _field(s, "payment_link") == link]
     started = len(sessions)
     if not started:
         scope = "ad payment link" if link else "all links"
         return f"STRIPE FUNNEL (last {days}d, {scope}): 0 checkout sessions started yet."
-    complete = sum(1 for s in sessions if s.get("status") == "complete")
-    paid = sum((s.get("amount_total") or 0) for s in sessions if s.get("status") == "complete") / 100.0
+    complete = sum(1 for s in sessions if _field(s, "status") == "complete")
+    paid = sum(_field(s, "amount_total", 0) for s in sessions if _field(s, "status") == "complete") / 100.0
     abandoned = started - complete
     rate = complete / started * 100
     scope = "ad payment link" if link else "all links"

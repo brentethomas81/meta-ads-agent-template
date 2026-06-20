@@ -68,6 +68,12 @@ def active_campaigns(ad_account_id=None) -> list[dict]:
     return _as_list(res)
 
 
+def all_campaigns(ad_account_id=None) -> list[dict]:
+    """Every campaign on the account regardless of status (incl. PAUSED)."""
+    res = meta.list_campaigns(ad_account_id=ad_account_id, limit=50)
+    return _as_list(res)
+
+
 def _camp_metrics(cid, preset):
     """Return {spend, clicks, purchases} for a campaign over a date preset, or {}."""
     try:
@@ -85,38 +91,65 @@ def _camp_metrics(cid, preset):
         return {}
 
 
+def _camp_segment(c, include_empty=False):
+    """One human-readable line of LIFETIME (+today) metrics for a campaign, or
+    None if it has no data and we're not forcing it in."""
+    cid = str(c.get("id"))
+    life = _camp_metrics(cid, "maximum")
+    today = _camp_metrics(cid, "today")
+    seg = f"- {c.get('name')} [{cid}] — {c.get('effective_status') or c.get('status')}"
+    has_data = False
+    if life:
+        spend = life.get("spend")
+        n = float(life.get("purchases")) if life.get("purchases") not in (None, "") else 0.0
+        parts = [f"spend ${spend}"] if spend is not None else []
+        parts.append(f"{int(n)} purchases")
+        if n > 0 and spend:
+            parts.append(f"CAC ${float(spend) / n:.2f}")
+        ck = life.get("checkouts")
+        if ck not in (None, ""):
+            parts.append(f"checkout {int(float(ck))} started → {int(n)} bought (Meta Pixel)")
+        if life.get("clicks") is not None:
+            parts.append(f"{life.get('clicks')} clicks")
+        seg += " | lifetime: " + ", ".join(parts)
+        if spend is not None:
+            try:
+                has_data = float(spend) > 0
+            except (TypeError, ValueError):
+                has_data = False
+    if today.get("spend") is not None:
+        seg += f" | today so far: ${today.get('spend')}"
+    if not has_data and not include_empty:
+        return None
+    return seg
+
+
 def live_snapshot(ad_account_id=None) -> str:
     """LIVE snapshot for the agent — LIFETIME totals first (so a fresh-day 'today'
-    near zero never masks real cumulative spend) plus today-so-far for momentum."""
+    near zero never masks real cumulative spend) plus today-so-far for momentum.
+
+    If nothing is ACTIVE right now, we still surface the LIFETIME history of any
+    PAUSED campaign that has spent money, so 'pull the metrics' on a paused
+    campaign returns its real numbers instead of 'nothing is running'."""
     try:
         camps = active_campaigns(ad_account_id)
     except Exception as e:  # noqa: BLE001
         return f"LIVE STATUS: unavailable ({str(e)[:120]})"
-    if not camps:
-        return "LIVE STATUS: No ACTIVE campaigns are running right now."
-    lines = ["LIVE STATUS (figures are campaign LIFETIME unless marked 'today'):"]
-    for c in camps:
-        cid = str(c.get("id"))
-        life = _camp_metrics(cid, "maximum")
-        today = _camp_metrics(cid, "today")
-        seg = f"- {c.get('name')} [{cid}] — {c.get('effective_status') or c.get('status')}"
-        if life:
-            spend = life.get("spend")
-            n = float(life.get("purchases")) if life.get("purchases") not in (None, "") else 0.0
-            parts = [f"spend ${spend}"] if spend is not None else []
-            parts.append(f"{int(n)} purchases")
-            if n > 0 and spend:
-                parts.append(f"CAC ${float(spend) / n:.2f}")
-            ck = life.get("checkouts")
-            if ck not in (None, ""):
-                parts.append(f"checkout {int(float(ck))} started → {int(n)} bought (Meta Pixel)")
-            if life.get("clicks") is not None:
-                parts.append(f"{life.get('clicks')} clicks")
-            seg += " | lifetime: " + ", ".join(parts)
-        if today.get("spend") is not None:
-            seg += f" | today so far: ${today.get('spend')}"
-        lines.append(seg)
-    return "\n".join(lines)
+    if camps:
+        lines = ["LIVE STATUS — ACTIVELY SPENDING NOW (figures are campaign LIFETIME unless marked 'today'):"]
+        for c in camps:
+            lines.append(_camp_segment(c, include_empty=True))
+        return "\n".join(lines)
+    # Nothing active — fall back to lifetime history of paused campaigns.
+    try:
+        history = [s for s in (_camp_segment(c) for c in all_campaigns(ad_account_id)) if s]
+    except Exception:  # noqa: BLE001
+        history = []
+    if not history:
+        return "LIVE STATUS: No campaign is spending right now, and no lifetime spend on record yet."
+    return ("LIVE STATUS: No campaign is ACTIVELY spending right now (all PAUSED). "
+            "Lifetime history of paused campaigns below — these numbers are real, just not live:\n"
+            + "\n".join(history))
 
 
 def execute_action(action: str, args: dict):
