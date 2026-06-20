@@ -22,6 +22,7 @@ import brain
 import briefing
 import config
 import store
+import stripe_data
 from brands import BRANDS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -81,6 +82,12 @@ def _respond(text: str, user: str, say):
         live = actions.live_snapshot(DEFAULT_BRAND.get("ad_account_id"))
     except Exception:  # noqa: BLE001
         live = ""
+    try:  # Stripe checkout funnel / abandonment (omitted silently if no key)
+        _sf = stripe_data.funnel_snapshot(days=14)
+        if _sf:
+            live = (live + "\n" + _sf) if live else _sf
+    except Exception:  # noqa: BLE001
+        pass
     answer = brain.ask(text, brand_name=DEFAULT_BRAND["name"], brand_dir=brand_dir,
                        live_data=live or None)
     clean, action = _extract_action(answer)

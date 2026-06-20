@@ -29,6 +29,11 @@ MODEL_AUDITOR = os.getenv("MODEL_AUDITOR", "claude-opus-4-8")                # f
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
+# Stripe (read-only) — funnel / checkout-abandonment visibility. Restricted key with
+# 'Checkout Sessions: read' + 'Payment Intents: read'. Optional; bot omits Stripe if unset.
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY", "").strip()
+STRIPE_PAYMENT_LINK = os.getenv("STRIPE_PAYMENT_LINK", "").strip()  # isolate the funnel to the ad's link
+
 # Knowledge-vault refresh reminder fires quarterly (months 1,4,7,10).
 
 # --- Behavior ---
@@ -52,9 +57,9 @@ LEARNING_DIR = REPO / "learning"
 
 # Map brand id -> repo folder that holds its Playbook/Decision_Log/Audience_Map
 BRAND_DIRS = {
-    "example-brand": REPO / "Example Brand",
-    # Add one entry per brand, matching the ids in brands.py / dashboard brands.js,
-    # pointing at that brand's folder (which holds its Playbook.md, etc.).
+    "pickle-phd": REPO / "Pickle PHD",
+    "key2tee": REPO / "Key2Tee",
+    "vista-golf": REPO / "Vista Golf USA",
 }
 
 

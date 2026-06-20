@@ -9,7 +9,24 @@ import actions
 import brain
 import config
 import store
+import stripe_data
 from brands import BRANDS
+
+# Clean, no-jargon morning report for a non-technical operator on a phone.
+BRIEF_PROMPT = (
+    "Write this brand's MORNING REPORT for a NON-TECHNICAL operator reading on a phone. "
+    "Plain English, ZERO jargon: say 'cost per subscriber' (not CAC), 'ad clicks' (not CTR / link clicks), "
+    "'started checkout but didn't buy' (not abandonment rate). Under ~90 words. "
+    "Pull every number from the LIVE DATA; if one isn't there, write '—'. "
+    "Output EXACTLY this structure, nothing before or after:\n"
+    "☀️ *<Brand> — Morning Report*\n"
+    "💸 Spent: $<total so far>\n"
+    "✅ New subscribers from ads: <n>\n"
+    "🎯 Cost per subscriber: $<x, or '—' if no sales yet>\n"
+    "👆 Ad clicks: <n>\n"
+    "🛒 Checkout: <started> started → <bought> bought\n"
+    "📌 The call: <ONE plain sentence — keep running / watch / a specific next step>"
+)
 
 
 def _active_brands():
@@ -33,30 +50,29 @@ def run_daily_briefing(post) -> str:
 
     sections = []
     for b, camps in active:
-        data = {}
-        for c in camps:
-            data[c.get("name", c.get("id"))] = actions.campaign_insights(
-                campaign_id=c["id"], date_preset="last_7d"
-            )
+        live = actions.live_snapshot(b["ad_account_id"])
+        try:
+            sf = stripe_data.funnel_snapshot(days=14)
+            if sf:
+                live = live + "\n" + sf
+        except Exception:  # noqa: BLE001
+            pass
         brand_dir = config.BRAND_DIRS.get(b["id"], config.REPO)
         answer = brain.ask(
-            "Produce today's morning briefing for this brand. Follow AGENT_INSTRUCTIONS exactly: "
-            "apply the 4-bucket framework and the 5 Questions, give the top recommendations with "
-            "confidence tags and a one-line 'why this matters' each. Be concise. If nothing needs "
-            "action, say so in one line.",
+            BRIEF_PROMPT,
             brand_name=b["name"],
             brand_dir=brand_dir,
-            live_data=json.dumps(data, indent=2)[:12000],
-            max_tokens=1800,
+            live_data=live,
+            max_tokens=500,
         )
-        sections.append(f"*{b['name']}*\n{answer}")
+        sections.append(answer)
         store.log_decision(
             brand=b["name"], scope="daily_briefing", call="BRIEFING", confidence="-",
             metrics={}, diagnosis="auto daily briefing", action_taken="posted to Slack",
             predicted="", source="briefing",
         )
 
-    post("🗞️ *Daily Meta Ads Briefing*\n\n" + "\n\n".join(sections))
+    post("\n\n".join(sections))
     return f"Briefing posted for {len(active)} active brand(s)."
 
 
