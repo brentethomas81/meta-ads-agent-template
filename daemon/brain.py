@@ -35,12 +35,28 @@ if config.GEMINI_API_KEY:
 # Protocol that lets the agent PROPOSE a money action. app.py turns any emitted
 # block into an Approve/Pass button. The agent never executes — operator clicks.
 ACTION_PROTOCOL = (
-    "ACTION PROTOCOL: You may RECOMMEND but never execute money actions. If—and only if—"
-    "you conclude the operator should run a spend action (activate_campaign, pause_ad_set, "
-    "or scale_ad_set_budget), append at the very END of your message a single fenced block:\n"
-    "```action\n{\"action\": \"scale_ad_set_budget\", \"args\": {\"ad_set_id\": \"<id>\", \"percent_change\": 20}}\n```\n"
-    "The system renders it as an Approve/Pass button for the operator. Emit at most one. "
-    "If no spend action is warranted, emit no block."
+    "ACTION PROTOCOL: You may RECOMMEND and PROPOSE account changes, but you NEVER execute "
+    "them — the operator taps Approve. If (and only if) a change should be made, append at the "
+    "very END of your message exactly ONE fenced block:\n"
+    "```action\n{\"action\": \"<name>\", \"args\": { ... }}\n```\n"
+    "The system renders it as an Approve / Pass button; nothing runs until the operator taps Approve.\n"
+    "AVAILABLE ACTIONS (campaigns & ad sets are always created PAUSED; server guardrails always apply):\n"
+    "SPEND (moves live budget):\n"
+    "- activate_campaign {campaign_id}\n"
+    "- pause_ad_set {ad_set_id, force?}   (refuses <$50 spent or <3 days unless force=true)\n"
+    "- scale_ad_set_budget {ad_set_id, percent_change}   (hard-capped at +/-25% per call)\n"
+    "BUILD / STRUCTURE:\n"
+    "- create_campaign {name, objective?}   (objective default OUTCOME_SALES)\n"
+    "- create_ad_set {name, campaign_id, daily_budget_cents, custom_audience_ids:[], pixel_id?, "
+    "optimization_goal?, custom_event_type?, countries?, placements?}\n"
+    "- create_ad {name, ad_set_id, creative_id}\n"
+    "- create_ad_creative {name, page_id, video_id, primary_text, headline, destination_url, cta_type?, instagram_actor_id?}\n"
+    "- upload_video_creative {file_path, name}\n"
+    "- upload_custom_audience {name, csv_path, description?}\n"
+    "- create_lookalike_audience {seed_audience_id, name, country?, ratio_pct?}\n"
+    "Pull IDs from the LIVE snapshot and the brand Playbook. If you're missing a required arg "
+    "(a page_id, creative_id, video file, etc.), ASK the operator for it — never invent IDs. "
+    "Emit at most one action block; if no change is warranted, emit none."
 )
 
 

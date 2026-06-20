@@ -85,7 +85,7 @@ def _respond(text: str, user: str, say):
                        live_data=live or None)
     clean, action = _extract_action(answer)
     say(clean or "(no response)")
-    if action and action.get("action") in actions.MONEY_ACTIONS:
+    if action and action.get("action") in actions.WRITE_ACTIONS:
         audit_ok, audit_note = brain.audit(answer, action["action"], action.get("args", {}))
         aid = store.create_approval(action["action"], action.get("args", {}), user)
         say(blocks=_approval_blocks(aid, action["action"], action.get("args", {}), audit_ok, audit_note),
@@ -121,7 +121,7 @@ def on_approve(ack, body, say):
         say("That action is no longer pending.")
         return
     args = json.loads(ap["args_json"])
-    result = actions.execute_money_action(ap["action"], args)
+    result = actions.execute_action(ap["action"], args)
     err = isinstance(result, dict) and result.get("error")
     store.update_approval(aid, "error" if err else "executed", result)
     say(f"{'⚠️ Error' if err else '✅ Done'}: `{ap['action']}`\n```{json.dumps(result, indent=2)}```")

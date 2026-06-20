@@ -33,12 +33,25 @@ def ad_set_insights(**kw):
     return meta.get_ad_set_insights(**kw)
 
 
-# --- Money / spend tools: gated behind Slack approval -----------------------
+# --- Write tools: EVERY one is gated behind a Slack Approve/Pass tap ---------
+# Spend actions (extra-sensitive — they move live budget).
 MONEY_ACTIONS = {
     "activate_campaign": meta.activate_campaign,
     "pause_ad_set": meta.pause_ad_set,
     "scale_ad_set_budget": meta.scale_ad_set_budget,
 }
+# Build / structural actions (change the account; campaigns & ad sets build PAUSED).
+BUILD_ACTIONS = {
+    "create_campaign": meta.create_campaign,
+    "create_ad_set": meta.create_ad_set,
+    "create_ad": meta.create_ad,
+    "create_ad_creative": meta.create_ad_creative,
+    "upload_video_creative": meta.upload_video_creative,
+    "upload_custom_audience": meta.upload_custom_audience,
+    "create_lookalike_audience": meta.create_lookalike_audience,
+}
+# Everything the agent may PROPOSE for one-tap approval.
+WRITE_ACTIONS = {**MONEY_ACTIONS, **BUILD_ACTIONS}
 
 
 def _as_list(res):
@@ -91,8 +104,18 @@ def live_snapshot(ad_account_id=None) -> str:
     return "\n".join(lines)
 
 
-def execute_money_action(action: str, args: dict):
-    fn = MONEY_ACTIONS.get(action)
+def execute_action(action: str, args: dict):
+    """Run any approval-gated write action. Server-side guardrails still apply
+    (paused-by-default, +/-25% scale cap, pause minimums)."""
+    fn = WRITE_ACTIONS.get(action)
     if not fn:
         return {"error": "UnknownAction", "message": action}
-    return fn(**args)
+    try:
+        return fn(**(args or {}))
+    except TypeError as e:
+        return {"error": "BadArgs", "message": str(e)}
+
+
+# Backwards-compatible alias.
+def execute_money_action(action: str, args: dict):
+    return execute_action(action, args)
