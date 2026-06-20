@@ -55,6 +55,42 @@ def active_campaigns(ad_account_id=None) -> list[dict]:
     return _as_list(res)
 
 
+def live_snapshot(ad_account_id=None) -> str:
+    """Plain-text snapshot of what is LIVE right now, with today's numbers.
+    Injected into the agent's reasoning so it always knows the real account
+    state — not just whatever the (slower-moving) Playbook says."""
+    try:
+        camps = active_campaigns(ad_account_id)
+    except Exception as e:  # noqa: BLE001
+        return f"LIVE STATUS: unavailable ({str(e)[:120]})"
+    if not camps:
+        return "LIVE STATUS: No ACTIVE campaigns are running right now."
+    lines = [f"LIVE STATUS — {len(camps)} ACTIVE campaign(s) running right now (today so far):"]
+    for c in camps:
+        cid = str(c.get("id"))
+        seg = f"- {c.get('name')} [{cid}] — {c.get('effective_status') or c.get('status')}"
+        try:
+            ins = campaign_insights(campaign_id=cid, date_preset="today")
+            row = ins[0] if isinstance(ins, list) and ins else (ins if isinstance(ins, dict) else {})
+            if row and not row.get("error"):
+                purch = next((a.get("value") for a in (row.get("actions") or [])
+                              if "purchase" in str(a.get("action_type", ""))), None)
+                bits = []
+                for k, lbl in (("spend", "spend $"), ("impressions", " impressions"),
+                               ("clicks", " clicks")):
+                    v = row.get(k)
+                    if v is not None:
+                        bits.append(f"{lbl}{v}" if lbl.endswith("$") else f"{v}{lbl}")
+                if purch is not None:
+                    bits.append(f"{purch} purchases")
+                if bits:
+                    seg += " | today: " + ", ".join(bits)
+        except Exception:  # noqa: BLE001
+            pass
+        lines.append(seg)
+    return "\n".join(lines)
+
+
 def execute_money_action(action: str, args: dict):
     fn = MONEY_ACTIONS.get(action)
     if not fn:

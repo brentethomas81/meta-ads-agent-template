@@ -75,7 +75,14 @@ def _respond(text: str, user: str, say):
     if len(text) < 2:
         return
     brand_dir = config.BRAND_DIRS.get(DEFAULT_BRAND["id"], config.REPO)
-    answer = brain.ask(text, brand_name=DEFAULT_BRAND["name"], brand_dir=brand_dir)
+    # Always hand the agent a live snapshot of the account so it knows what is
+    # actually running right now — not just what the Playbook last said.
+    try:
+        live = actions.live_snapshot(DEFAULT_BRAND.get("ad_account_id"))
+    except Exception:  # noqa: BLE001
+        live = ""
+    answer = brain.ask(text, brand_name=DEFAULT_BRAND["name"], brand_dir=brand_dir,
+                       live_data=live or None)
     clean, action = _extract_action(answer)
     say(clean or "(no response)")
     if action and action.get("action") in actions.MONEY_ACTIONS:
