@@ -59,6 +59,16 @@ ACTION_PROTOCOL = (
     "Emit at most one action block; if no change is warranted, emit none."
 )
 
+# How replies should LOOK in Slack — short, scannable, phone-friendly.
+SLACK_STYLE = (
+    "REPLY STYLE (Slack, read on a phone — keep it tight and scannable):\n"
+    "- First line = the headline answer/number in *bold*. No preamble, no restating the question.\n"
+    "- Then 2-5 short bullet lines, one metric or point each; *bold* the numbers.\n"
+    "- End with ONE line: the call — 🟢 Scale / 🟡 Hold / 🟠 Watch / 🔴 Pause + a <=1-sentence why.\n"
+    "- Keep it under ~120 words unless asked to go deep. No long paragraphs. "
+    "Money in USD; quote LIFETIME figures unless asked for a specific window."
+)
+
 
 def _read(path) -> str:
     try:
@@ -184,6 +194,7 @@ def ask(question, *, brand_name, brand_dir, live_data=None, model=None, max_toke
         {"type": "text", "text": _brand_context(brand_dir, brand_name)},
         {"type": "text", "text": _learning_context(brand_name)},
         {"type": "text", "text": ACTION_PROTOCOL},
+        {"type": "text", "text": SLACK_STYLE},
     ]
     user = question
     if live_data:

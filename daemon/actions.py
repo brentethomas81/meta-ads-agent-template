@@ -68,38 +68,47 @@ def active_campaigns(ad_account_id=None) -> list[dict]:
     return _as_list(res)
 
 
+def _camp_metrics(cid, preset):
+    """Return {spend, clicks, purchases} for a campaign over a date preset, or {}."""
+    try:
+        ins = campaign_insights(campaign_id=cid, date_preset=preset)
+        row = ins[0] if isinstance(ins, list) and ins else (ins if isinstance(ins, dict) else {})
+        if not row or row.get("error"):
+            return {}
+        purch = next((a.get("value") for a in (row.get("actions") or [])
+                      if "purchase" in str(a.get("action_type", ""))), None)
+        return {"spend": row.get("spend"), "clicks": row.get("clicks"), "purchases": purch}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 def live_snapshot(ad_account_id=None) -> str:
-    """Plain-text snapshot of what is LIVE right now, with today's numbers.
-    Injected into the agent's reasoning so it always knows the real account
-    state — not just whatever the (slower-moving) Playbook says."""
+    """LIVE snapshot for the agent — LIFETIME totals first (so a fresh-day 'today'
+    near zero never masks real cumulative spend) plus today-so-far for momentum."""
     try:
         camps = active_campaigns(ad_account_id)
     except Exception as e:  # noqa: BLE001
         return f"LIVE STATUS: unavailable ({str(e)[:120]})"
     if not camps:
         return "LIVE STATUS: No ACTIVE campaigns are running right now."
-    lines = [f"LIVE STATUS — {len(camps)} ACTIVE campaign(s) running right now (today so far):"]
+    lines = ["LIVE STATUS (figures are campaign LIFETIME unless marked 'today'):"]
     for c in camps:
         cid = str(c.get("id"))
+        life = _camp_metrics(cid, "maximum")
+        today = _camp_metrics(cid, "today")
         seg = f"- {c.get('name')} [{cid}] — {c.get('effective_status') or c.get('status')}"
-        try:
-            ins = campaign_insights(campaign_id=cid, date_preset="today")
-            row = ins[0] if isinstance(ins, list) and ins else (ins if isinstance(ins, dict) else {})
-            if row and not row.get("error"):
-                purch = next((a.get("value") for a in (row.get("actions") or [])
-                              if "purchase" in str(a.get("action_type", ""))), None)
-                bits = []
-                for k, lbl in (("spend", "spend $"), ("impressions", " impressions"),
-                               ("clicks", " clicks")):
-                    v = row.get(k)
-                    if v is not None:
-                        bits.append(f"{lbl}{v}" if lbl.endswith("$") else f"{v}{lbl}")
-                if purch is not None:
-                    bits.append(f"{purch} purchases")
-                if bits:
-                    seg += " | today: " + ", ".join(bits)
-        except Exception:  # noqa: BLE001
-            pass
+        if life:
+            spend = life.get("spend")
+            n = float(life.get("purchases")) if life.get("purchases") not in (None, "") else 0.0
+            parts = [f"spend ${spend}"] if spend is not None else []
+            parts.append(f"{int(n)} purchases")
+            if n > 0 and spend:
+                parts.append(f"CAC ${float(spend) / n:.2f}")
+            if life.get("clicks") is not None:
+                parts.append(f"{life.get('clicks')} clicks")
+            seg += " | lifetime: " + ", ".join(parts)
+        if today.get("spend") is not None:
+            seg += f" | today so far: ${today.get('spend')}"
         lines.append(seg)
     return "\n".join(lines)
 
