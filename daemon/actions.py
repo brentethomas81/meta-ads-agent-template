@@ -77,7 +77,10 @@ def _camp_metrics(cid, preset):
             return {}
         purch = next((a.get("value") for a in (row.get("actions") or [])
                       if "purchase" in str(a.get("action_type", ""))), None)
-        return {"spend": row.get("spend"), "clicks": row.get("clicks"), "purchases": purch}
+        checks = next((a.get("value") for a in (row.get("actions") or [])
+                       if "initiate_checkout" in str(a.get("action_type", ""))), None)
+        return {"spend": row.get("spend"), "clicks": row.get("clicks"),
+                "purchases": purch, "checkouts": checks}
     except Exception:  # noqa: BLE001
         return {}
 
@@ -104,6 +107,9 @@ def live_snapshot(ad_account_id=None) -> str:
             parts.append(f"{int(n)} purchases")
             if n > 0 and spend:
                 parts.append(f"CAC ${float(spend) / n:.2f}")
+            ck = life.get("checkouts")
+            if ck not in (None, ""):
+                parts.append(f"checkout {int(float(ck))} started → {int(n)} bought (Meta Pixel)")
             if life.get("clicks") is not None:
                 parts.append(f"{life.get('clicks')} clicks")
             seg += " | lifetime: " + ", ".join(parts)
