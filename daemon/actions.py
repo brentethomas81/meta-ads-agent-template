@@ -81,12 +81,17 @@ def _camp_metrics(cid, preset):
         row = ins[0] if isinstance(ins, list) and ins else (ins if isinstance(ins, dict) else {})
         if not row or row.get("error"):
             return {}
-        purch = next((a.get("value") for a in (row.get("actions") or [])
-                      if "purchase" in str(a.get("action_type", ""))), None)
-        checks = next((a.get("value") for a in (row.get("actions") or [])
-                       if "initiate_checkout" in str(a.get("action_type", ""))), None)
+        acts = row.get("actions") or []
+
+        def _find(*subs):
+            for a in acts:
+                if any(s in str(a.get("action_type", "")) for s in subs):
+                    return a.get("value")
+            return None
+
         return {"spend": row.get("spend"), "clicks": row.get("clicks"),
-                "purchases": purch, "checkouts": checks}
+                "purchases": _find("purchase"), "subscribes": _find("subscribe"),
+                "checkouts": _find("initiate_checkout")}
     except Exception:  # noqa: BLE001
         return {}
 
@@ -99,26 +104,47 @@ def _camp_segment(c, include_empty=False):
     today = _camp_metrics(cid, "today")
     seg = f"- {c.get('name')} [{cid}] — {c.get('effective_status') or c.get('status')}"
     has_data = False
+
+    def _conv(m):
+        # the meaningful conversion = subscribes (current optimization) else purchases
+        for k in ("subscribes", "purchases"):
+            v = m.get(k)
+            if v not in (None, ""):
+                try:
+                    return float(v), k
+                except (TypeError, ValueError):
+                    pass
+        return 0.0, "subscribes"
+
     if life:
         spend = life.get("spend")
-        n = float(life.get("purchases")) if life.get("purchases") not in (None, "") else 0.0
+        n, label = _conv(life)
         parts = [f"spend ${spend}"] if spend is not None else []
-        parts.append(f"{int(n)} purchases")
+        parts.append(f"{int(n)} {label}")
         if n > 0 and spend:
-            parts.append(f"CAC ${float(spend) / n:.2f}")
+            parts.append(f"cost-per-{label[:-1]} ${float(spend) / n:.2f}")
         ck = life.get("checkouts")
         if ck not in (None, ""):
-            parts.append(f"checkout {int(float(ck))} started → {int(n)} bought (Meta Pixel)")
+            parts.append(f"checkout {int(float(ck))} started → {int(n)} converted")
         if life.get("clicks") is not None:
             parts.append(f"{life.get('clicks')} clicks")
-        seg += " | lifetime: " + ", ".join(parts)
+        seg += " | LIFETIME: " + ", ".join(parts)
         if spend is not None:
             try:
                 has_data = float(spend) > 0
             except (TypeError, ValueError):
                 has_data = False
-    if today.get("spend") is not None:
-        seg += f" | today so far: ${today.get('spend')}"
+    # TODAY (so the agent can answer 'just today' without borrowing lifetime numbers)
+    if today and today.get("spend") is not None:
+        tn, tlabel = _conv(today)
+        tparts = [f"${today.get('spend')} spent"]
+        if today.get("clicks") is not None:
+            tparts.append(f"{today.get('clicks')} clicks")
+        tparts.append(f"{int(tn)} {tlabel}")
+        tck = today.get("checkouts")
+        if tck not in (None, ""):
+            tparts.append(f"{int(float(tck))} checkouts started")
+        seg += " | TODAY ONLY: " + ", ".join(tparts)
     if not has_data and not include_empty:
         return None
     return seg

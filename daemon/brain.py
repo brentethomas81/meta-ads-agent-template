@@ -59,14 +59,23 @@ ACTION_PROTOCOL = (
     "Emit at most one action block; if no change is warranted, emit none."
 )
 
-# How replies should LOOK in Slack — short, scannable, phone-friendly.
+# How replies should LOOK in Slack — short, scannable, phone-friendly, PLAIN.
 SLACK_STYLE = (
-    "REPLY STYLE (Slack, read on a phone — keep it tight and scannable):\n"
+    "REPLY STYLE (Slack, read on a phone — keep it tight, scannable, and PLAIN):\n"
     "- First line = the headline answer/number in *bold*. No preamble, no restating the question.\n"
     "- Then 2-5 short bullet lines, one metric or point each; *bold* the numbers.\n"
     "- End with ONE line: the call — 🟢 Scale / 🟡 Hold / 🟠 Watch / 🔴 Pause + a <=1-sentence why.\n"
-    "- Keep it under ~120 words unless asked to go deep. No long paragraphs. "
-    "Money in USD; quote LIFETIME figures unless asked for a specific window."
+    "- Under ~120 words unless asked to go deep. No long paragraphs. Money in USD.\n"
+    "- PLAIN ENGLISH. Write for a sharp non-marketer. No hype words ('burning', 'crushing', 'flying blind').\n"
+    "- TEACH THE LINGO — required: the FIRST time ANY industry term or acronym appears in a message, add a short "
+    "plain-English gloss in parentheses right after it. The operator is learning the industry, so do this EVERY message, "
+    "even for terms used before. Examples: CAPI (server-side tracking that reports sales straight to Meta), "
+    "CAC (cost to get one paying customer), CPC (cost per click), CPM (cost per 1,000 views), CTR (click-through rate — "
+    "% who click), CVR (% who finish checkout), ROAS (revenue per $1 of ad spend), frequency (avg times one person saw the "
+    "ad), attribution (how Meta credits a sale to an ad), learning phase (Meta's early test period before it optimizes).\n"
+    "- TIME WINDOW — respect exactly what's asked: if the operator names a window (today, yesterday, last 7 days), report "
+    "ONLY that window's numbers and say which window it is. Do NOT pad with lifetime totals. Use lifetime only when no window "
+    "is named. If a needed number isn't available for that window, say so plainly rather than substituting another period."
 )
 
 
