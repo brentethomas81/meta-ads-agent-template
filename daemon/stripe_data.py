@@ -48,6 +48,64 @@ def _recent_sessions(days: int):
     return out
 
 
+# --- Ad attribution (deterministic, cookie-free) ----------------------------
+# The ad's dedicated landing page: organic users never see it, so any checkout
+# that STARTS there is ad-driven by definition. Combined with the Meta click id
+# (fbc / fbclid carried in the stored landing URL) this tags real ad sales
+# WITHOUT relying on Meta's cookie attribution (which the IG in-app browser and
+# iOS routinely wipe). Excludes known internal test emails.
+_AD_PAGE = "stan-plan"
+_TEST_EMAILS = {"redacted@example.com", "redacted@example.com", "redacted@example.com"}
+
+
+def _meta(s) -> dict:
+    md = _field(s, "metadata", {}) or {}
+    out = {}
+    for k in ("eventSourceUrl", "event_source_url", "fbc", "fbclid"):
+        v = _field(md, k, None)
+        if v not in (None, ""):
+            out[k] = str(v)
+    return out
+
+
+def _email(s) -> str:
+    cd = _field(s, "customer_details", {}) or {}
+    return str(_field(cd, "email", "") or "").lower()
+
+
+def _is_ad_driven(s) -> bool:
+    m = _meta(s)
+    src = (m.get("eventSourceUrl") or m.get("event_source_url") or "").lower()
+    if _AD_PAGE in src:
+        return True
+    if m.get("fbc") or m.get("fbclid") or "fbclid=" in src:
+        return True
+    return False
+
+
+def ad_attribution(days: int = 14) -> str:
+    """Real ad-driven subscriptions from Stripe, independent of Meta's (under-counted)
+    cookie attribution. Tagged by the /stan-plan landing page + Meta click id; test
+    emails excluded. Returns '' if Stripe isn't configured."""
+    if not _READY:
+        return ""
+    try:
+        sessions = _recent_sessions(days)
+    except Exception:  # noqa: BLE001
+        return ""
+    subs, rev = 0, 0.0
+    for s in sessions:
+        if _field(s, "status") != "complete" or _email(s) in _TEST_EMAILS:
+            continue
+        if _is_ad_driven(s):
+            subs += 1
+            rev += _field(s, "amount_total", 0) / 100.0
+    if not subs:
+        return f"AD-ATTRIBUTED (Stripe, last {days}d): 0 real ad-driven subscriptions tagged yet (test purchases excluded)."
+    return (f"AD-ATTRIBUTED (Stripe, last {days}d): {subs} real ad-driven subscription(s) · ${rev:.2f} "
+            f"— tagged by the /stan-plan page + Meta click id, NOT Meta's cookie attribution (which under-counts); test emails excluded.")
+
+
 def funnel_snapshot(days: int = 14) -> str:
     """One line: checkout sessions started vs completed vs abandoned + rates.
     Abandonment = sessions that never reached 'complete' (open/expired)."""
@@ -57,20 +115,21 @@ def funnel_snapshot(days: int = 14) -> str:
         sessions = _recent_sessions(days)
     except Exception as e:  # noqa: BLE001
         return f"STRIPE: data unavailable ({str(e)[:110]})"
-    link = config.STRIPE_PAYMENT_LINK
-    if link:
-        sessions = [s for s in sessions if _field(s, "payment_link") == link]
+    # NOTE: the old bare Stripe Payment Link is retired — the ad now drives to the
+    # /stan-plan page (Checkout Sessions, no payment_link), so we track ALL sessions
+    # for overall checkout health and tag the ad-driven subset separately below.
     started = len(sessions)
+    ad = ad_attribution(days)
     if not started:
-        scope = "ad payment link" if link else "all links"
-        return f"STRIPE FUNNEL (last {days}d, {scope}): 0 checkout sessions started yet."
+        base = f"STRIPE FUNNEL (last {days}d): 0 checkout sessions started yet."
+        return base + ("\n" + ad if ad else "")
     complete = sum(1 for s in sessions if _field(s, "status") == "complete")
     paid = sum(_field(s, "amount_total", 0) for s in sessions if _field(s, "status") == "complete") / 100.0
     abandoned = started - complete
     rate = complete / started * 100
-    scope = "ad payment link" if link else "all links"
-    return (
-        f"STRIPE FUNNEL (last {days}d, {scope}): {started} checkout sessions started · "
+    funnel = (
+        f"STRIPE FUNNEL (last {days}d, all checkout sessions): {started} started · "
         f"{complete} completed (${paid:.2f}) · {abandoned} abandoned → "
         f"{rate:.0f}% completion / {100 - rate:.0f}% abandonment."
     )
+    return funnel + ("\n" + ad if ad else "")
