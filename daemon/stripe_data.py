@@ -57,6 +57,16 @@ def _recent_sessions(days: int):
 _AD_PAGE = "stan-plan"
 _TEST_EMAILS = {"redacted@example.com", "redacted@example.com", "redacted@example.com"}
 
+# Manually-confirmed ad-driven sales that Meta missed (no cookie/click-id — wiped by
+# the Instagram in-app browser, or they predate the landing-page tag). Confirmed by
+# Brent from timing + customer context. Add emails here as we hand-verify more.
+_CONFIRMED_AD_EMAILS = {
+    "redacted@example.com",  # 06-19 $29.99 — Brent-confirmed
+    "redacted@example.com",         # 06-19 $29.99 — twin fingerprint of justin
+    "redacted@example.com",          # 06-23 $9.99  — during live ad, IG in-app pattern
+    "redacted@example.com",         # 06-24 $9.95  — during live ad, IG in-app pattern
+}
+
 
 def _meta(s) -> dict:
     md = _field(s, "metadata", {}) or {}
@@ -97,13 +107,13 @@ def ad_attribution(days: int = 14) -> str:
     for s in sessions:
         if _field(s, "status") != "complete" or _email(s) in _TEST_EMAILS:
             continue
-        if _is_ad_driven(s):
+        if _is_ad_driven(s) or _email(s) in _CONFIRMED_AD_EMAILS:
             subs += 1
             rev += _field(s, "amount_total", 0) / 100.0
     if not subs:
         return f"AD-ATTRIBUTED (Stripe, last {days}d): 0 real ad-driven subscriptions tagged yet (test purchases excluded)."
     return (f"AD-ATTRIBUTED (Stripe, last {days}d): {subs} real ad-driven subscription(s) · ${rev:.2f} "
-            f"— tagged by the /stan-plan page + Meta click id, NOT Meta's cookie attribution (which under-counts); test emails excluded.")
+            f"— tagged by the /stan-plan page + Meta click id + hand-confirmed sales, NOT Meta's cookie attribution (which under-counts); test emails excluded.")
 
 
 def funnel_snapshot(days: int = 14) -> str:
