@@ -54,18 +54,15 @@ def _recent_sessions(days: int):
 # (fbc / fbclid carried in the stored landing URL) this tags real ad sales
 # WITHOUT relying on Meta's cookie attribution (which the IG in-app browser and
 # iOS routinely wipe). Excludes known internal test emails.
-_AD_PAGE = "stan-plan"
-_TEST_EMAILS = {"redacted@example.com", "redacted@example.com", "redacted@example.com"}
+_AD_PAGE = "REPLACE_ME"  # the slug of your ad's dedicated landing page, e.g. "get" for /get
 
-# Manually-confirmed ad-driven sales that Meta missed (no cookie/click-id — wiped by
-# the Instagram in-app browser, or they predate the landing-page tag). Confirmed by
-# Brent from timing + customer context. Add emails here as we hand-verify more.
-_CONFIRMED_AD_EMAILS = {
-    "redacted@example.com",  # 06-19 $29.99 — Brent-confirmed
-    "redacted@example.com",         # 06-19 $29.99 — twin fingerprint of justin
-    "redacted@example.com",          # 06-23 $9.99  — during live ad, IG in-app pattern
-    "redacted@example.com",         # 06-24 $9.95  — during live ad, IG in-app pattern
-}
+# Your own internal test-purchase emails to exclude from real-revenue counts.
+_TEST_EMAILS = set()  # e.g. {"you@example.com"}
+
+# Emails of sales you've hand-verified as ad-driven that Meta missed (its cookie /
+# click-id attribution is wiped by the Instagram in-app browser, iOS, etc.). Add to
+# this set as you confirm them, so ad_attribution counts them.
+_CONFIRMED_AD_EMAILS = set()
 
 
 def _meta(s) -> dict:
