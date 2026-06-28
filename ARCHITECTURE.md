@@ -57,6 +57,9 @@ The agent pulls data freely but **can never spend on its own**:
 | Anthropic API — per briefing/question | ~2–7¢ each |
 | Typical month, one active brand | ~$15–30 all-in |
 
+## Reporting — ad ROI tracker
+An optional reporting pipeline (`tools/`) pulls live payment-processor + Meta data on a schedule and rebuilds an Excel dashboard tracking each brand's **ad-campaign spend vs. real subscription revenue collected over each customer's life** — true ROI grounded in actual payments, not the ad platform's reported conversions. Run it on a daily schedule (e.g., 6 AM). Scripts: `pull_subs`, `pull_ad_tracker`, `build_tracker_xlsx`, `build_ad_tracker_xlsx`.
+
 ## Where it runs
 - **Two Fly.io apps**: dashboard + bot daemon. The bot uses Slack Socket Mode (outbound only — no public web address).
 - **SQLite on a persistent disk** stores the learning record across restarts.
