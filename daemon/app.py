@@ -34,6 +34,29 @@ DEFAULT_BRAND = next((b for b in BRANDS if b.get("active")), BRANDS[0])
 
 ACTION_RE = re.compile(r"```action\s*(\{.*?\})\s*```", re.DOTALL)
 
+# When a message names a specific person or email, look that customer up in
+# Stripe so the agent can answer "did this sale come from the ad?" with real
+# per-customer signals instead of guessing from aggregates.
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.\w+")
+_NAME_RE = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b")
+# Add your own brand names / plan names / product terms here so they aren't
+# mistaken for a customer name.
+_NAME_STOP = {
+    "meta ads", "meta ad", "ad set", "ad sets", "google drive", "socket mode",
+    "performance agent",
+}
+
+
+def _customer_query(text: str):
+    """Extract an email or a person's full name to look up, or None."""
+    m = _EMAIL_RE.search(text or "")
+    if m:
+        return m.group(0)
+    for cand in _NAME_RE.findall(text or ""):
+        if cand.lower() not in _NAME_STOP:
+            return cand
+    return None
+
 
 def _extract_action(text: str):
     """Pull an ```action {json}``` block out of the agent's reply, if present."""
@@ -86,6 +109,14 @@ def _respond(text: str, user: str, say):
         _sf = stripe_data.funnel_snapshot(days=14)
         if _sf:
             live = (live + "\n" + _sf) if live else _sf
+    except Exception:  # noqa: BLE001
+        pass
+    try:  # If they named a person/email, attach that customer's real ad signals.
+        _q = _customer_query(text)
+        if _q:
+            _ca = stripe_data.customer_attribution(_q)
+            if _ca:
+                live = (live + "\n\n" + _ca) if live else _ca
     except Exception:  # noqa: BLE001
         pass
     answer = brain.ask(text, brand_name=DEFAULT_BRAND["name"], brand_dir=brand_dir,

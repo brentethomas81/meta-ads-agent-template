@@ -84,6 +84,24 @@ SLACK_STYLE = (
 )
 
 
+# How to answer "did this person / this sale come from the ad?" — honestly.
+ATTRIBUTION_GUIDE = (
+    "ATTRIBUTION — answering 'did this sale/person come from the ad?':\n"
+    "- If a CUSTOMER LOOKUP block is present, base your answer ENTIRELY on it and quote the specific signal that decided it. "
+    "Lead with a clear verdict, don't hedge into mush.\n"
+    "- HARD proof of ad-driven = the checkout carried a Meta click id (fbc/fbclid — the tag Meta adds when someone clicks an ad) "
+    "OR came through the ad's dedicated landing page (organic visitors never see that page). Only then say 'yes, ad-driven'.\n"
+    "- The Meta pixel cookie (fbp — the tracking cookie every visitor's browser gets when the site loads) is NOT proof on its own. "
+    "NEVER call a sale ad-driven just because fbp exists; organic visitors have it too.\n"
+    "- No click id + checkout source is the homepage → say plainly it CAN'T be confirmed as ad-driven, then give the soft read with a "
+    "confidence label (e.g., a brand-new visitor who bought the ad's exact plan minutes after first landing = possible view-through/referral, "
+    "but unproven).\n"
+    "- Teach one line on WHY it's unprovable: if the landing page isn't passing the Meta click id into the payment record, and the "
+    "in-app browser wipes cookies, Meta under-counts and some real ad sales can't be hard-confirmed. Don't overclaim in EITHER direction.\n"
+    "- If the lookup found no customer, say so and give the likely reasons (different email, or an unfinished checkout) — don't invent a result."
+)
+
+
 def _read(path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -208,6 +226,7 @@ def ask(question, *, brand_name, brand_dir, live_data=None, model=None, max_toke
         {"type": "text", "text": _brand_context(brand_dir, brand_name)},
         {"type": "text", "text": _learning_context(brand_name)},
         {"type": "text", "text": ACTION_PROTOCOL},
+        {"type": "text", "text": ATTRIBUTION_GUIDE},
         {"type": "text", "text": SLACK_STYLE},
     ]
     user = question
