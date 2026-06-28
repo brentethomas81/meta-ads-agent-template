@@ -65,6 +65,15 @@ _TEST_EMAILS = set()  # e.g. {"you@example.com"}
 # this set as you confirm them, so ad_attribution counts them.
 _CONFIRMED_AD_EMAILS = set()
 
+# The plan your ad promotes (a substring of the planName your checkout stores in Stripe
+# metadata), e.g. "stan" for "The Stan Plan". A fresh-visitor purchase of THIS plan during
+# the ad's flight is "likely ad-driven" even without a hard click id. Leave as REPLACE_ME to
+# disable the LIKELY tier.
+_AD_PLAN_HINT = "REPLACE_ME"
+# Your ad campaign's start date (YYYY-MM-DD). The LIKELY tier only counts purchases on/after
+# this — without it a long look-back tags pre-campaign organic buyers as ad-driven. "" = off.
+_AD_FLIGHT_START = ""
+
 
 def _meta(s) -> dict:
     md = _field(s, "metadata", {}) or {}
@@ -91,27 +100,86 @@ def _is_ad_driven(s) -> bool:
     return False
 
 
+def _plan_name(s) -> str:
+    md = _field(s, "metadata", {}) or {}
+    try:
+        return str(md["planName"])
+    except Exception:  # noqa: BLE001
+        return str(_field(md, "planName", "") or "")
+
+
+def _pixel_age_min(s):
+    """Minutes between the visitor's FIRST pixel load (fbp) and this checkout, or None."""
+    md = _field(s, "metadata", {}) or {}
+    fbp_ms = _fbp_first_ms(md if isinstance(md, dict) else {"fbp": _field(md, "fbp", "")})
+    created = _field(s, "created", 0)
+    if not fbp_ms or not created:
+        return None
+    return round((int(created) * 1000 - fbp_ms) / 60000)
+
+
+def _flight_start_ts() -> int:
+    if not _AD_FLIGHT_START:
+        return 0
+    try:
+        import datetime as _dt
+        return int(_dt.datetime.strptime(_AD_FLIGHT_START, "%Y-%m-%d").timestamp())
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def _likely_ad(s, max_min: int = 30) -> bool:
+    """Soft, self-served signal (no click id needed): a FIRST-TIME visitor (pixel first fired
+    within max_min before checkout) who bought the AD'S plan, on/after the ad's flight start.
+    Catches real ad sales whose click id was stripped by the in-app browser. Not hard proof."""
+    if not _AD_PLAN_HINT or _AD_PLAN_HINT == "REPLACE_ME":
+        return False
+    if _AD_PLAN_HINT not in _plan_name(s).lower():
+        return False
+    fs = _flight_start_ts()
+    if fs and int(_field(s, "created", 0) or 0) < fs:
+        return False
+    age = _pixel_age_min(s)
+    return age is not None and 0 <= age <= max_min
+
+
+def classify_session(s) -> str:
+    """'confirmed' (hard click id / the ad landing page / hand-confirmed), 'likely' (fresh
+    pixel + ad plan in flight), or 'no' — for one COMPLETE, non-test checkout session."""
+    if _field(s, "status") != "complete" or _email(s) in _TEST_EMAILS:
+        return "no"
+    if _is_ad_driven(s) or _email(s) in _CONFIRMED_AD_EMAILS:
+        return "confirmed"
+    if _likely_ad(s):
+        return "likely"
+    return "no"
+
+
 def ad_attribution(days: int = 14) -> str:
-    """Real ad-driven subscriptions from Stripe, independent of Meta's (under-counted)
-    cookie attribution. Tagged by the the ad landing page + Meta click id; test
-    emails excluded. Returns '' if Stripe isn't configured."""
+    """Real ad-driven sales from Stripe, independent of Meta's (under-counted) cookie
+    attribution. Two honest tiers: CONFIRMED (hard click id / the ad landing page / hand-
+    confirmed) and LIKELY (a first-time visitor who bought the ad's plan minutes after landing,
+    in flight — the in-app browser strips the click id). Returns '' if Stripe isn't configured."""
     if not _READY:
         return ""
     try:
         sessions = _recent_sessions(days)
     except Exception:  # noqa: BLE001
         return ""
-    subs, rev = 0, 0.0
+    c_n, c_rev, l_n, l_rev = 0, 0.0, 0, 0.0
     for s in sessions:
-        if _field(s, "status") != "complete" or _email(s) in _TEST_EMAILS:
-            continue
-        if _is_ad_driven(s) or _email(s) in _CONFIRMED_AD_EMAILS:
-            subs += 1
-            rev += _field(s, "amount_total", 0) / 100.0
-    if not subs:
-        return f"AD-ATTRIBUTED (Stripe, last {days}d): 0 real ad-driven subscriptions tagged yet (test purchases excluded)."
-    return (f"AD-ATTRIBUTED (Stripe, last {days}d): {subs} real ad-driven subscription(s) · ${rev:.2f} "
-            f"— tagged by the the ad landing page + Meta click id + hand-confirmed sales, NOT Meta's cookie attribution (which under-counts); test emails excluded.")
+        tier = classify_session(s)
+        amt = _field(s, "amount_total", 0) / 100.0
+        if tier == "confirmed":
+            c_n += 1; c_rev += amt
+        elif tier == "likely":
+            l_n += 1; l_rev += amt
+    if not (c_n or l_n):
+        return f"AD-ATTRIBUTED (Stripe, last {days}d): 0 ad-driven sales tagged yet (test purchases excluded)."
+    return (f"AD-ATTRIBUTED (Stripe, last {days}d) — two tiers, NOT Meta's cookie attribution (which under-counts):\n"
+            f"  • CONFIRMED: {c_n} sale(s) · ${c_rev:.2f} (hard click id / the ad landing page / hand-confirmed).\n"
+            f"  • LIKELY: {l_n} sale(s) · ${l_rev:.2f} (first-time visitor bought the ad's plan minutes after landing — click id wiped by the in-app browser).\n"
+            f"  Total believed ad-driven: {c_n + l_n} · ${c_rev + l_rev:.2f}. Hard proof needs the click id passed into checkout.")
 
 
 def _fbp_first_ms(md: dict):

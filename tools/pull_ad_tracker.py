@@ -22,13 +22,16 @@ except Exception as e:
     meta={"error":str(e)[:120]}
 acct_spend=int(AdAccount(ACCT).api_get(fields=["amount_spent"]).get("amount_spent",0))/100
 # --- ad-driven subscribers (confirmed + signal) lifecycle from Stripe ---
-ad_emails=set(sd._CONFIRMED_AD_EMAILS)
+tier={}
 for s in sd._recent_sessions(120):
-    if sd._is_ad_driven(s):
-        e=sd._email(s)
-        if e and e not in sd._TEST_EMAILS: ad_emails.add(e)
+    e=sd._email(s)
+    if not e or e in sd._TEST_EMAILS: continue
+    t=sd.classify_session(s)
+    if t=="confirmed": tier[e]="confirmed"
+    elif t=="likely": tier.setdefault(e,"likely")
+for e in sd._CONFIRMED_AD_EMAILS: tier.setdefault(e,"confirmed")
 rows=[]
-for e in sorted(ad_emails):
+for e in sorted(tier):
     try:
         custs=json.loads(str(stripe.Customer.list(email=e, limit=1)))["data"]
         if not custs: 
@@ -48,5 +51,8 @@ for e in sorted(ad_emails):
             rows.append({"email":e,"plan":"one-time","amount":0,"interval":"","status":"paid (no sub)","start":"","canceled":"","collected":paid})
     except Exception as ex:
         rows.append({"email":e,"plan":"err","status":str(ex)[:60],"start":"","canceled":"","collected":0,"amount":0,"interval":""})
+for r in rows: r["tier"]=tier.get(r["email"],"confirmed")
 json.dump({"meta":meta,"ad_spend":round(acct_spend,2),"ad_subs":rows,"generated":time.strftime("%Y-%m-%d %H:%M")}, open("/tmp/adtracker.json","w"))
-print("DONE meta_spend",meta.get("spend"),"ad_subs",len(rows))
+print("DONE meta_spend",meta.get("spend"),"ad_subs",len(rows),
+      "confirmed",sum(1 for r in rows if r.get("tier")=="confirmed"),
+      "likely",sum(1 for r in rows if r.get("tier")=="likely"))
