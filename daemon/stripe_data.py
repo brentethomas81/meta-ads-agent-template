@@ -93,9 +93,14 @@ def _email(s) -> str:
 def _is_ad_driven(s) -> bool:
     m = _meta(s)
     src = (m.get("eventSourceUrl") or m.get("event_source_url") or "").lower()
-    if _AD_PAGE in src:
+    # firstTouchUrl: the visitor's FIRST page-load URL, persisted by the landing
+    # page through any login detour (buyers often check out from a different page
+    # than they landed on, losing the click id). Pre-wired so attribution upgrades
+    # the moment the page starts sending it.
+    first = (m.get("firstTouchUrl") or m.get("first_touch_url") or "").lower()
+    if _AD_PAGE in src or _AD_PAGE in first:
         return True
-    if m.get("fbc") or m.get("fbclid") or "fbclid=" in src:
+    if m.get("fbc") or m.get("fbclid") or "fbclid=" in src or "fbclid=" in first or "mcid=" in src or "mcid=" in first:
         return True
     return False
 
