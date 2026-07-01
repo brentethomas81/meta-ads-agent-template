@@ -162,6 +162,16 @@ def ad_attribution(days: int = 14) -> str:
     in flight — the in-app browser strips the click id). Returns '' if Stripe isn't configured."""
     if not _READY:
         return ""
+    # Never let the look-back window clip the campaign: widen `days` so the scan
+    # always reaches back to _AD_FLIGHT_START. Without this, once the flight is
+    # older than `days`, early sales silently drop out and the count shrinks.
+    if _AD_FLIGHT_START:
+        try:
+            flight_age = int((time.time() - time.mktime(
+                time.strptime(_AD_FLIGHT_START, "%Y-%m-%d"))) // 86400) + 2
+            days = max(days, flight_age)
+        except Exception:  # noqa: BLE001
+            pass
     try:
         sessions = _recent_sessions(days)
     except Exception:  # noqa: BLE001

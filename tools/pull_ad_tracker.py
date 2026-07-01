@@ -23,7 +23,15 @@ except Exception as e:
 acct_spend=int(AdAccount(ACCT).api_get(fields=["amount_spent"]).get("amount_spent",0))/100
 # --- ad-driven subscribers (confirmed + signal) lifecycle from Stripe ---
 tier={}
-for s in sd._recent_sessions(120):
+# Window must always reach back to the campaign flight start — a fixed look-back
+# silently drops the earliest ad sales once the flight outlives it.
+_days=120
+if sd._AD_FLIGHT_START:
+    try:
+        _days=max(_days,int((time.time()-time.mktime(time.strptime(sd._AD_FLIGHT_START,"%Y-%m-%d")))//86400)+2)
+    except Exception:
+        pass
+for s in sd._recent_sessions(_days):
     e=sd._email(s)
     if not e or e in sd._TEST_EMAILS: continue
     t=sd.classify_session(s)
