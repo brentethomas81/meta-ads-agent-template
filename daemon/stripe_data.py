@@ -78,7 +78,8 @@ _AD_FLIGHT_START = ""
 def _meta(s) -> dict:
     md = _field(s, "metadata", {}) or {}
     out = {}
-    for k in ("eventSourceUrl", "event_source_url", "fbc", "fbclid"):
+    for k in ("eventSourceUrl", "event_source_url", "fbc", "fbclid",
+              "firstTouchUrl", "first_touch_url", "firstTouchTs"):
         v = _field(md, k, None)
         if v not in (None, ""):
             out[k] = str(v)
