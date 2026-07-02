@@ -212,6 +212,8 @@ def main():
     sched.start()
     log.info("Meta Ads Agent bot up (Socket Mode). Daily briefing %02d:%02d %s.",
              config.BRIEFING_HOUR, config.BRIEFING_MINUTE, config.BRIEFING_TZ)
+    import clicklog
+    clicklog.start_http(port=8080)
     SocketModeHandler(app, config.SLACK_APP_TOKEN).start()
 
 
